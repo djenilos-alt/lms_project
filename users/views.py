@@ -1,16 +1,35 @@
-from rest_framework.generics import RetrieveUpdateAPIView
-
-from .models import User
-from .serializers import UserSerializer
 from rest_framework import generics, filters
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Payment
-from .serializers import PaymentSerializer
+from .permissions import IsOwnerOrReadOnly
+from .models import User, Payment
+from .serializers import (
+    UserSerializer,
+    UserCreateSerializer,
+    PaymentSerializer,
+)
 
-class UserRetrieveUpdateAPIView(RetrieveUpdateAPIView):
+
+class UserListAPIView(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class UserCreateAPIView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserCreateSerializer
+    permission_classes = [AllowAny]
+
+
+class UserRetrieveUpdateDestroyAPIView(
+    generics.RetrieveUpdateDestroyAPIView
+):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+
 
 class PaymentListAPIView(generics.ListAPIView):
     queryset = Payment.objects.all()
