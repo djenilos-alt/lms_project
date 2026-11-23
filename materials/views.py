@@ -6,13 +6,19 @@ from rest_framework.generics import (
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 
-from .models import Course, Lesson
+from .models import Course, Lesson, Subscription
 from .serializers import CourseSerializer, LessonSerializer
 from .permissions import IsModerator, IsOwner, IsModeratorOrOwner
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .paginators import MaterialsPagination
 
 
 class CourseViewSet(ModelViewSet):
     serializer_class = CourseSerializer
+    pagination_class = MaterialsPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -46,6 +52,7 @@ class CourseViewSet(ModelViewSet):
 class LessonListCreateAPIView(ListCreateAPIView):
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = MaterialsPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -82,3 +89,46 @@ class LessonRetrieveUpdateDestroyAPIView(
             return [IsAuthenticated(), IsOwner()]
 
         return [IsAuthenticated(), IsModeratorOrOwner()]
+
+
+class SubscriptionAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        course_id = request.data.get("course_id")
+
+        if not course_id:
+            return Response(
+                {"message": "Необходимо указать course_id."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            course = Course.objects.get(pk=course_id)
+        except Course.DoesNotExist:
+            return Response(
+                {"message": "Курс не найден."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        subscription = Subscription.objects.filter(
+            user=request.user,
+            course=course,
+        )
+
+        if subscription.exists():
+            subscription.delete()
+            return Response(
+                {"message": "Подписка на курс отменена."},
+                status=status.HTTP_200_OK,
+            )
+
+        Subscription.objects.create(
+            user=request.user,
+            course=course,
+        )
+
+        return Response(
+            {"message": "Вы подписались на курс."},
+            status=status.HTTP_201_CREATED,
+        )
