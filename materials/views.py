@@ -3,6 +3,12 @@ from rest_framework.generics import (
     ListCreateAPIView,
     RetrieveUpdateDestroyAPIView,
 )
+from datetime import timedelta
+
+from django.utils import timezone
+
+from .tasks import send_course_update_email
+
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 
@@ -21,6 +27,21 @@ from rest_framework.response import Response
 from rest_framework import status
 from .paginators import MaterialsPagination
 
+
+def notify_course_subscribers_if_due(course, last_updated_at):
+    """Планирует уведомление, если прошло не менее 4 часов."""
+
+    now = timezone.now()
+
+    if now - last_updated_at >= timedelta(hours=4):
+        Course.objects.filter(pk=course.pk).update(updated_at=now)
+        course.updated_at = now
+        send_course_update_email.delay(course.pk)
+    else:
+        Course.objects.filter(pk=course.pk).update(
+            updated_at=last_updated_at
+        )
+        course.updated_at = last_updated_at
 
 class CourseViewSet(ModelViewSet):
     queryset = Course.objects.all()
@@ -54,6 +75,31 @@ class CourseViewSet(ModelViewSet):
             )
 
         serializer.save(owner=self.request.user)
+
+    def perform_update(self, serializer):
+        course = serializer.instance
+        last_updated_at = course.updated_at
+
+        serializer.save()
+
+        notify_course_subscribers_if_due(
+            course,
+            last_updated_at,
+        )
+    def notify_course_subscribers_if_due(course, last_updated_at):
+        """Планирует уведомление, если прошло не менее 4 часов."""
+
+        now = timezone.now()
+
+        if now - last_updated_at >= timedelta(hours=4):
+            Course.objects.filter(pk=course.pk).update(updated_at=now)
+            course.updated_at = now
+            send_course_update_email.delay(course.pk)
+        else:
+            Course.objects.filter(pk=course.pk).update(
+                updated_at=last_updated_at
+            )
+            course.updated_at = last_updated_at
 
 
 class LessonListCreateAPIView(ListCreateAPIView):
@@ -97,6 +143,17 @@ class LessonRetrieveUpdateDestroyAPIView(
 
         return [IsAuthenticated(), IsModeratorOrOwner()]
 
+    def perform_update(self, serializer):
+        lesson = serializer.instance
+        course = lesson.course
+        last_updated_at = course.updated_at
+
+        serializer.save()
+
+        notify_course_subscribers_if_due(
+            course,
+            last_updated_at,
+        )
 
 class SubscriptionAPIView(APIView):
     permission_classes = [IsAuthenticated]
