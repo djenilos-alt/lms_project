@@ -7,8 +7,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 
 from .models import Course, Lesson, Subscription
-from .serializers import CourseSerializer, LessonSerializer
+from .serializers import (
+    CourseSerializer,
+    LessonSerializer,
+    SubscriptionRequestSerializer,
+    SubscriptionResponseSerializer,
+)
 from .permissions import IsModerator, IsOwner, IsModeratorOrOwner
+from drf_spectacular.utils import extend_schema
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -17,6 +23,7 @@ from .paginators import MaterialsPagination
 
 
 class CourseViewSet(ModelViewSet):
+    queryset = Course.objects.all()
     serializer_class = CourseSerializer
     pagination_class = MaterialsPagination
 
@@ -93,6 +100,21 @@ class LessonRetrieveUpdateDestroyAPIView(
 
 class SubscriptionAPIView(APIView):
     permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Подписка на курс или отмена подписки",
+        description=(
+                "Если подписки ещё нет — создаёт её. "
+                "Если подписка существует — удаляет её."
+        ),
+        request=SubscriptionRequestSerializer,
+        responses={
+            200: SubscriptionResponseSerializer,
+            201: SubscriptionResponseSerializer,
+            400: SubscriptionResponseSerializer,
+            404: SubscriptionResponseSerializer,
+        },
+    )
 
     def post(self, request, *args, **kwargs):
         course_id = request.data.get("course_id")

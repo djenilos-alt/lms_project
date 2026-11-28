@@ -65,3 +65,32 @@ class UserSerializer(serializers.ModelSerializer):
             data.pop("payments", None)
 
         return data
+class PaymentCreateSerializer(serializers.Serializer):
+    course_id = serializers.IntegerField(
+        help_text="ID курса, который пользователь хочет оплатить."
+    )
+
+
+class PaymentCreateResponseSerializer(serializers.Serializer):
+    payment_id = serializers.IntegerField()
+    status = serializers.CharField()
+    payment_url = serializers.URLField()
+    stripe_session_id = serializers.CharField()
+
+class PaymentStatusResponseSerializer(serializers.Serializer):
+    payment_id = serializers.IntegerField()
+    status = serializers.CharField()
+    stripe_session_status = serializers.CharField()
+    stripe_payment_status = serializers.CharField()
+
+class PaymentSuccessResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    payment_id = serializers.IntegerField()
+    status = serializers.CharField()
+    stripe_session_status = serializers.CharField()
+    stripe_payment_status = serializers.CharField()
+
+
+class PaymentCancelResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    status = serializers.CharField()
